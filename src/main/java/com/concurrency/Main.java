@@ -8,7 +8,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.IntStream;
 
-import static com.concurrency.ConcurrencySupport.ITERATION;
+import static com.concurrency.ConcurrencySupport.USERS;
 import static com.concurrency.ConcurrencySupport.PERSISTENCE_FORK_FACTOR;
 import static com.concurrency.ConcurrencySupport.persistence;
 import static com.concurrency.ConcurrencySupport.serviceA;
@@ -28,29 +28,29 @@ public class Main {
         start();
 
         try (var e = Executors.newVirtualThreadExecutor()) {
-            IntStream.rangeClosed(1, ITERATION).forEach(i -> e.submit(() -> iterate(i)));
+            IntStream.rangeClosed(1, USERS).forEach(i -> e.submit(() -> userFlow(i)));
         }
 
         stop();
     }
 
     @SneakyThrows
-    private void iterate(int iteration) {
+    private void userFlow(int user) {
         List<Future<String>> result;
         try (var e = Executors.newVirtualThreadExecutor()) {
             result = e.invokeAll(List.of(
-                    () -> serviceA(iteration),
-                    () -> serviceB(iteration)
+                    () -> serviceA(user),
+                    () -> serviceB(user)
             ));
         }
 
-        computation(iteration, result.get(0).get(), result.get(1).get());
+        persist(result.get(0).get(), result.get(1).get());
     }
 
-    private void computation(int iteration, String serviceA, String serviceB) {
+    private void persist(String serviceA, String serviceB) {
         try (var e = Executors.newVirtualThreadExecutor()) {
             IntStream.rangeClosed(1, PERSISTENCE_FORK_FACTOR)
-                    .forEach(i -> e.submit(() -> persistence(iteration, serviceA, serviceB)));
+                    .forEach(i -> e.submit(() -> persistence(i, serviceA, serviceB)));
         }
     }
 }
